@@ -192,6 +192,7 @@ if os.path.exists(results_file):
 
     # Collect best model stats from the "main table"
     stats = []
+    
     for row in ws.iter_rows(min_row=2, max_col=3, values_only=True):
         if not any(row):
             break
@@ -199,12 +200,22 @@ if os.path.exists(results_file):
         if stat_name is not None and best_val is not None:
             stats.append((stat_name, try_format(best_val, stat_name)))
 
+    confusion_matrix = stats.pop()[1] # Remove confusion matrix from stats
+       
     if stats:
-        st.markdown("**Best Model Test Results:**")
         for stat_name, best_val in stats:
             st.markdown(f"- **{stat_name}**: `{best_val}`")
     else:
         st.info("No summary statistics found in results file.")
+        
+    # Display confusion matrix image if available and file exists
+    if confusion_matrix:
+        cm_path = confusion_matrix
+        # If path is not absolute, prepend the confusion_matrices/ folder
+        if not os.path.isabs(cm_path) and not cm_path.startswith("confusion_matrices/"):
+            cm_path = os.path.join("confusion_matrices", cm_path)
+        if os.path.exists(cm_path):
+            st.image(cm_path, caption="Confusion Matrix (Best Model)", use_container_width=True)
 else:
     st.info("No model results file (`eye_classification_results.xlsx`) found. Please train and evaluate your model first.")
     
