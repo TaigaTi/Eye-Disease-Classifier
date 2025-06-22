@@ -3,6 +3,14 @@ Eye Disease Classifier is a machine learning project designed to automatically d
 
 ![image](https://github.com/user-attachments/assets/ffaffdd4-a49c-4055-98f9-308f457e7bc8)
 
+## Dataset
+Kaggle: [Eye Disease Retinal Images](https://www.kaggle.com/datasets/gunavenkatdoddi/eye-diseases-classification/data?select=dataset)
+
+## Classes
+- Cataract
+- Diabetic Retinopathy
+- Glaucoma
+- Normal
 
 ## Setup Instructions
 
