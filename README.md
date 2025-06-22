@@ -1,6 +1,9 @@
 # Eye Disease Classifier
 Eye Disease Classifier is a machine learning project designed to automatically detect and classify common eye diseases from retinal images.
 
+![image](https://github.com/user-attachments/assets/ffaffdd4-a49c-4055-98f9-308f457e7bc8)
+
+
 ## Setup Instructions
 
 ### Prerequisites
