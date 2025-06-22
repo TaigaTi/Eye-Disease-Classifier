@@ -19,7 +19,7 @@ loading_message_placeholder.info("🚀 Setting up the classifier... Please wait.
 # Load model
 @st.cache_resource # Cache the model to avoid reloading on each interaction
 def load_model():
-    model = tf.keras.models.load_model("models/best_eye_model.keras")
+    model = tf.keras.models.load_model("models/eye_classifier_model.keras")
     return model
 
 model = load_model()
