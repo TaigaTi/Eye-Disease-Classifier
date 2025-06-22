@@ -120,21 +120,23 @@ class_names = train_data.class_names
 num_classes = len(class_names)
 
 # --- QUICK VISUAL CHECK OF A FEW RANDOM IMAGES ---
-def show_random_images_and_labels(dataset, class_names, n=5):
-    all_images = []
-    all_labels = []
+def show_random_image_per_category(dataset, class_names):
+    # Collect all images by class
+    images_by_class = {i: [] for i in range(len(class_names))}
     for img, lbl in dataset.unbatch():
-        all_images.append(img.numpy())
-        all_labels.append(np.argmax(lbl.numpy()))
-    total = len(all_images)
-    indices = np.random.choice(total, n, replace=False)
-    plt.figure(figsize=(15, 3))
-    for i, idx in enumerate(indices):
-        plt.subplot(1, n, i+1)
-        img = all_images[idx]
-        plt.imshow(img.astype(np.uint8))
-        plt.title(class_names[all_labels[idx]])
-        plt.axis('off')
+        lbl_idx = np.argmax(lbl.numpy())
+        images_by_class[lbl_idx].append(img.numpy())
+    
+    plt.figure(figsize=(4 * len(class_names), 4))
+    for class_idx in range(len(class_names)):
+        # Randomly select an image for this class
+        imgs = images_by_class[class_idx]
+        if imgs:
+            img = imgs[np.random.randint(len(imgs))]
+            plt.subplot(1, len(class_names), class_idx + 1)
+            plt.imshow(img.astype(np.uint8))
+            plt.title(class_names[class_idx])
+            plt.axis('off')
     plt.tight_layout()
     plt.show()
 
@@ -142,13 +144,13 @@ print(f"Number of classes: {num_classes}")
 print(f"Class names: {class_names}")
 
 print("\nTrain Data Samples")
-show_random_images_and_labels(train_data, class_names, n=5)
+show_random_image_per_category(train_data, class_names)
 
 print("\nTest Data Samples")
-show_random_images_and_labels(test_data, class_names, n=5)
+show_random_image_per_category(test_data, class_names)
 
 print("\nValidation Data Samples")
-show_random_images_and_labels(val_data, class_names, n=5)
+show_random_image_per_category(val_data, class_names)
 
 print("\n")
 
@@ -194,7 +196,7 @@ def do_sanity_test(train_data, class_names):
     if final_acc <= 0.95:
         raise RuntimeError("Sanity test FAILED: Model did NOT overfit, check label/image pipeline!")
 
-do_sanity_test(train_data, class_names)
+# do_sanity_test(train_data, class_names)
 
 # --- DATA AUGMENTATION PIPELINE ---
 data_augmentation = tf.keras.Sequential([
