@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import os
+import io
 
 # --- Custom CSS for button and image styling ---
 st.markdown("""
@@ -38,9 +39,15 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-if 'selected_sample_image_path' not in st.session_state:
-    st.session_state.selected_sample_image_path = None
+# --- Session State for currently selected image, caption, and uploader key ---
+if "selected_image_bytes" not in st.session_state:
+    st.session_state.selected_image_bytes = None
+if "selected_image_caption" not in st.session_state:
+    st.session_state.selected_image_caption = None
+if "file_uploader_key" not in st.session_state: # NEW: Key for file uploader
+    st.session_state.file_uploader_key = 0
 
+# --- Loading Model ---
 loading_message_placeholder = st.empty()
 loading_message_placeholder.info("🚀 Setting up the classifier... Please wait.")
 
@@ -91,14 +98,22 @@ def process_and_predict_image(image_to_analyze):
         for i, class_name in enumerate(class_names):
             st.write(f"- **{class_name}**: {prediction[0][i]*100:.2f}%")
 
+# --- Image Upload Section ---
 st.subheader("Upload Retinal Image")
 uploaded_file = st.file_uploader(
     "Choose an image file (JPG, JPEG, PNG)",
     type=["jpg", "jpeg", "png"],
-    help="Upload a clear image of the retina for the best prediction."
+    help="Upload a clear image of the retina for the best prediction.",
+    key=f"file_uploader_{st.session_state.file_uploader_key}" # NEW: Dynamic key
 )
 st.write("---")
 
+# If a new image is uploaded, clear previous image state
+if uploaded_file is not None:
+    st.session_state.selected_image_bytes = uploaded_file.read()
+    st.session_state.selected_image_caption = "Uploaded Image"
+    
+# --- Sample Images Section ---
 st.subheader("Or Try with Sample Images")
 sample_image_dir = "samples"
 
@@ -120,33 +135,28 @@ else:
                 sample_image = Image.open(sample_image_path).convert("RGB")
                 st.image(sample_image, use_container_width=True)
                 if st.button(f"Sample {i+1}", key=f"sample_btn_{sample_file}", use_container_width=True):
-                    st.session_state.selected_sample_image_path = sample_image_path
-                    st.session_state.uploaded_file = None
-                    st.rerun()
-            except FileNotFoundError:
-                st.error(f"Sample image '{sample_file}' not found at '{sample_image_path}'.")
+                    with open(sample_image_path, "rb") as f:
+                        st.session_state.selected_image_bytes = f.read()
+                    st.session_state.selected_image_caption = f"Sample Image: {os.path.basename(sample_image_path)}"
+                    
+                    st.session_state.file_uploader_key += 1 
+                    st.rerun() # Rerun to apply the changes
             except Exception as e:
                 st.error(f"Error loading sample image '{sample_file}': {e}")
 
 col1, col2 = st.columns(2)
 image_to_display_and_process = None
-image_caption = ""
+image_caption = st.session_state.selected_image_caption
 
-if uploaded_file is not None:
-    image_to_display_and_process = Image.open(uploaded_file).convert("RGB")
-    image_caption = "Uploaded Image"
-    st.session_state.selected_sample_image_path = None
-elif st.session_state.selected_sample_image_path:
-    if os.path.exists(st.session_state.selected_sample_image_path):
-        try:
-            image_to_display_and_process = Image.open(st.session_state.selected_sample_image_path).convert("RGB")
-            image_caption = f"Sample Image: {os.path.basename(st.session_state.selected_sample_image_path)}"
-        except Exception as e:
-            st.error(f"Error loading previously selected sample image: {e}")
-            st.session_state.selected_sample_image_path = None
-    else:
-        st.warning(f"Previously selected sample image not found at '{st.session_state.selected_sample_image_path}'. It might have been moved or deleted.")
-        st.session_state.selected_sample_image_path = None
+if st.session_state.selected_image_bytes is not None:
+    try:
+        image_to_display_and_process = Image.open(
+            io.BytesIO(st.session_state.selected_image_bytes)
+        ).convert("RGB")
+    except Exception as e:
+        st.error(f"Error loading selected image: {e}")
+        st.session_state.selected_image_bytes = None
+        st.session_state.selected_image_caption = None
 
 if image_to_display_and_process is not None:
     with col1:
