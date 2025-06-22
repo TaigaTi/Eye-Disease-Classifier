@@ -21,13 +21,25 @@ random.seed(42)  # For reproducibility
 # --- DOWNLOAD DATASET ---
 root = kagglehub.dataset_download("gunavenkatdoddi/eye-diseases-classification") + "/dataset/"
 
-# --- SPLIT DATASET, ENSURE MASKS ARE IGNORED ---
-class_names = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)) and not d.startswith('.')]
+# --- SPLIT DATASET ---
+class_names = [
+    d for d in os.listdir(root)
+    if os.path.isdir(os.path.join(root, d))
+    and not d.startswith('.')
+    and d.lower() != "dataset"
+]
 
 split_data_dir = os.path.join(os.getcwd(), "dataset_split")
 for split in ["train", "val", "test"]:
     for class_name in class_names:
         os.makedirs(os.path.join(split_data_dir, split, class_name), exist_ok=True)
+
+def copy_images(img_list, class_name, class_path, split_name, split_data_dir):
+    for img in img_list:
+        src = os.path.join(class_path, img)
+        dst = os.path.join(split_data_dir, split_name, class_name, img)
+        if os.path.isfile(src):  # Only copy files
+            shutil.copy(src, dst)
 
 for class_name in class_names:
     class_path = os.path.join(root, class_name)
@@ -43,12 +55,19 @@ for class_name in class_names:
     val_imgs = images[n_train:n_train + n_val]
     test_imgs = images[n_train + n_val:]
 
-    for img in train_imgs:
-        shutil.copy(os.path.join(class_path, img), os.path.join(split_data_dir, "train", class_name, img))
-    for img in val_imgs:
-        shutil.copy(os.path.join(class_path, img), os.path.join(split_data_dir, "val", class_name, img))
-    for img in test_imgs:
-        shutil.copy(os.path.join(class_path, img), os.path.join(split_data_dir, "test", class_name, img))
+    copy_images(train_imgs, class_name, class_path, "train", split_data_dir)
+    copy_images(val_imgs, class_name, class_path, "val", split_data_dir)
+    copy_images(test_imgs, class_name, class_path, "test", split_data_dir)
+
+# --- CLEANUP: ENSURE NO NON-CLASS FOLDERS IN SPLIT DIRS ---
+for split in ["train", "val", "test"]:
+    split_path = os.path.join(split_data_dir, split)
+    for item in os.listdir(split_path):
+        item_path = os.path.join(split_path, item)
+        if not os.path.isdir(item_path):
+            os.remove(item_path)
+        elif item.lower() == "dataset":
+            shutil.rmtree(item_path)
 
 print('Dataset split complete!\n')
 
@@ -62,6 +81,10 @@ for split in ["train", "val", "test"]:
 train_dir = os.path.join(split_data_dir, "train")
 val_dir = os.path.join(split_data_dir, "val")
 test_dir = os.path.join(split_data_dir, "test")
+
+# Show actual folders in each split to verify
+for split, path in [("train", train_dir), ("val", val_dir), ("test", test_dir)]:
+    print(f"Folders in {split} split: {os.listdir(path)}\n")
 
 train_data = tf.keras.utils.image_dataset_from_directory(
     train_dir,
@@ -109,7 +132,6 @@ def show_random_images_and_labels(dataset, class_names, n=5):
     for i, idx in enumerate(indices):
         plt.subplot(1, n, i+1)
         img = all_images[idx]
-        # Display as uint8 for correct color and intensity
         plt.imshow(img.astype(np.uint8))
         plt.title(class_names[all_labels[idx]])
         plt.axis('off')
@@ -117,15 +139,15 @@ def show_random_images_and_labels(dataset, class_names, n=5):
     plt.show()
 
 print(f"Number of classes: {num_classes}")
-print(f"Class names: {class_names}\n")
+print(f"Class names: {class_names}")
 
-print("Train Data Samples")
+print("\nTrain Data Samples")
 show_random_images_and_labels(train_data, class_names, n=5)
 
-print("Test Data Samples")
+print("\nTest Data Samples")
 show_random_images_and_labels(test_data, class_names, n=5)
 
-print("Validation Data Samples")
+print("\nValidation Data Samples")
 show_random_images_and_labels(val_data, class_names, n=5)
 
 print("\n")
@@ -154,7 +176,6 @@ def do_sanity_test(train_data, class_names):
             break
     images = np.stack(images)
     labels = np.array(labels)
-    # Use uint8 images, as EfficientNet preprocess expects [0,255]
     inp = tf.keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3))
     x = tf.keras.applications.efficientnet.preprocess_input(inp)
     x = tf.keras.layers.Flatten()(x)
@@ -177,12 +198,14 @@ do_sanity_test(train_data, class_names)
 
 # --- DATA AUGMENTATION PIPELINE ---
 data_augmentation = tf.keras.Sequential([
-    tf.keras.layers.RandomFlip("horizontal"),
-    tf.keras.layers.RandomRotation(0.2),
-    tf.keras.layers.RandomZoom(0.2),
-    tf.keras.layers.RandomContrast(0.2),
+    tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.RandomRotation(0.3),
+    tf.keras.layers.RandomZoom(height_factor=0.2, width_factor=0.2),
+    tf.keras.layers.RandomContrast(0.3),
     tf.keras.layers.RandomBrightness(0.2),
-    tf.keras.layers.RandomTranslation(0.2, 1.0),
+    tf.keras.layers.RandomTranslation(0.2, 0.2),
+    tf.keras.layers.RandomHeight(0.1),
+    tf.keras.layers.RandomWidth(0.1),
 ])
 
 # --- TRANSFER LEARNING MODEL (EFFICIENTNETB0) ---
