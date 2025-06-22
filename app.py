@@ -1,5 +1,6 @@
 import streamlit as st
 import tensorflow as tf
+import openpyxl
 import numpy as np
 from PIL import Image
 import os
@@ -165,7 +166,48 @@ if image_to_display_and_process is not None:
         process_and_predict_image(image_to_display_and_process)
 else:
     st.info("👆 Please upload an image or select a sample image to get a prediction.")
+    
+# --- Model Stats Section ---
+st.write("---")
+st.subheader("Model Performance Summary")
 
+results_file = "eye_classification_results.xlsx"
+
+def try_format(val, stat_name=None):
+    # Round epochs to integer, other floats to 3dp, else show as-is
+    if stat_name and "epoch" in stat_name.lower():
+        try:
+            return str(int(round(float(val))))
+        except Exception:
+            return str(val)
+    try:
+        f = float(val)
+        return f"{f:.3f}"
+    except Exception:
+        return str(val)
+
+if os.path.exists(results_file):
+    wb = openpyxl.load_workbook(results_file)
+    ws = wb.active
+
+    # Collect best model stats from the "main table"
+    stats = []
+    for row in ws.iter_rows(min_row=2, max_col=3, values_only=True):
+        if not any(row):
+            break
+        stat_name, _, best_val = row
+        if stat_name is not None and best_val is not None:
+            stats.append((stat_name, try_format(best_val, stat_name)))
+
+    if stats:
+        st.markdown("**Best Model Test Results:**")
+        for stat_name, best_val in stats:
+            st.markdown(f"- **{stat_name}**: `{best_val}`")
+    else:
+        st.info("No summary statistics found in results file.")
+else:
+    st.info("No model results file (`eye_classification_results.xlsx`) found. Please train and evaluate your model first.")
+    
 st.write("---")
 st.markdown("""
     <div style="text-align: center; color: gray;">

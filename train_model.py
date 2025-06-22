@@ -119,6 +119,7 @@ test_data = tf.keras.utils.image_dataset_from_directory(
 class_names = train_data.class_names
 num_classes = len(class_names)
 
+
 # --- QUICK VISUAL CHECK OF A FEW RANDOM IMAGES ---
 def show_random_image_per_category(dataset, class_names):
     # Collect all images by class
@@ -200,14 +201,11 @@ def do_sanity_test(train_data, class_names):
 
 # --- DATA AUGMENTATION PIPELINE ---
 data_augmentation = tf.keras.Sequential([
-    tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.RandomFlip("horizontal"),
     tf.keras.layers.RandomRotation(0.3),
     tf.keras.layers.RandomZoom(height_factor=0.2, width_factor=0.2),
     tf.keras.layers.RandomContrast(0.3),
     tf.keras.layers.RandomBrightness(0.2),
-    tf.keras.layers.RandomTranslation(0.2, 0.2),
-    tf.keras.layers.RandomHeight(0.1),
-    tf.keras.layers.RandomWidth(0.1),
 ])
 
 # --- TRANSFER LEARNING MODEL (EFFICIENTNETB0) ---
@@ -241,15 +239,15 @@ checkpoint = tf.keras.callbacks.ModelCheckpoint("best_eye_model.keras", monitor=
 history = model.fit(
     train_data,
     validation_data=val_data,
-    epochs=20,
+    epochs=50,
     callbacks=[early_stop, reduce_lr, checkpoint],
     verbose=1
 )
 
-# --- FINE-TUNE THE LAST 20 LAYERS, ADD DATA AUGMENTATION ---
-for layer in base_model.layers[:-20]:
+# --- FINE-TUNE THE LAST 25 LAYERS, ADD DATA AUGMENTATION ---
+for layer in base_model.layers[:-25]:
     layer.trainable = False
-for layer in base_model.layers[-20:]:
+for layer in base_model.layers[-25:]:
     layer.trainable = True
 
 inputs_aug = tf.keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3))
@@ -271,20 +269,26 @@ model_aug.compile(
 history_fine = model_aug.fit(
     train_data,
     validation_data=val_data,
-    epochs=10,
+    epochs=30,
     callbacks=[early_stop, reduce_lr, checkpoint],
     verbose=1
 )
 
-model_aug = tf.keras.models.load_model("best_eye_model.keras")
+# --- EVALUATION: FINAL MODEL (model_aug) ---
+final_model = model_aug
+final_loss, final_acc = final_model.evaluate(test_data, verbose=1)
 
-# --- EVALUATION ON TEST SET ---
+# --- EVALUATION: BEST MODEL ---
+best_model = tf.keras.models.load_model("best_eye_model.keras")
+best_loss, best_acc = best_model.evaluate(test_data, verbose=1)
+
+# --- CONFUSION MATRIX & REPORT: BASED ON BEST MODEL ---
 y_true = []
 y_pred = []
 
 for images, labels in test_data:
-    preds = model_aug.predict(images, verbose=0)
-    y_true.extend(np.argmax(labels.numpy(), axis=1))  # one-hot to index
+    preds = best_model.predict(images, verbose=0)
+    y_true.extend(np.argmax(labels.numpy(), axis=1))
     y_pred.extend(np.argmax(preds, axis=1))
 
 cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
@@ -296,7 +300,7 @@ filename = f"confusion_matrix_{model_type}_img{IMG_SIZE}_bs{BATCH_SIZE}_ep{len(h
 
 plt.figure(figsize=(16, 14))
 sns.heatmap(cm, annot=False, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
-plt.title("Confusion Matrix")
+plt.title("Confusion Matrix (Best Model)")
 plt.ylabel("Actual Class")
 plt.xlabel("Predicted Class")
 plt.xticks(rotation=90)
@@ -307,37 +311,33 @@ plt.close()
 print(f"Confusion matrix saved as {filename}")
 
 report_str = classification_report(y_true, y_pred, target_names=class_names)
-test_loss, test_acc = model_aug.evaluate(test_data, verbose=1)
-print(f"Test accuracy: {test_acc:.4f}")
-
-model_aug.save("eye_classifier_model.keras")
 
 # --- SAVE RESULTS TO EXCEL ---
 wb = openpyxl.Workbook()
 ws = wb.active
 ws.title = "Results"
 
-ws.append(["Metric", "Value"])
-ws.append(["Test Accuracy", test_acc])
-ws.append(["Test Loss", test_loss])
-ws.append(["Epochs", len(history.epoch) + len(history_fine.epoch)])
-ws.append(["Confusion Matrix Image", filename])
+ws.append(["Metric", "Final Model", "Best Model"])
+ws.append(["Test Accuracy", final_acc, best_acc])
+ws.append(["Test Loss", final_loss, best_loss])
+ws.append(["Epochs (Total)", len(history.epoch) + len(history_fine.epoch), len(history.epoch) + len(history_fine.epoch)])
+ws.append(["Confusion Matrix Image (Best Model)", filename, filename])
 
 ws.append([])
-ws.append(["Model Summary", ""])
+ws.append(["Model Summary (Best Model)", ""])
 model_summary = []
-model_aug.summary(print_fn=lambda x: model_summary.append(x))
+best_model.summary(print_fn=lambda x: model_summary.append(x))
 for line in model_summary:
     ws.append([line])
 
 ws.append([])
-ws.append(["Confusion Matrix"])
+ws.append(["Confusion Matrix (Best Model)"])
 ws.append([""] + class_names)
 for i, row in enumerate(cm):
     ws.append([class_names[i]] + row.tolist())
 
 ws.append([])
-ws.append(["Classification Report"])
+ws.append(["Classification Report (Best Model)"])
 for line in report_str.strip().split("\n"):
     ws.append([line])
 
