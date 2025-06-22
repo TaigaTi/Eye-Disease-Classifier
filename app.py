@@ -3,7 +3,20 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# Load your trained model
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Eye Disease Classifier",
+    page_icon="👁️",
+    layout="centered",
+    initial_sidebar_state="auto"
+)
+
+# Placeholder for initial loading message
+loading_message_placeholder = st.empty()
+loading_message_placeholder.info("🚀 Setting up the classifier... Please wait.")
+
+
+# Load model
 @st.cache_resource # Cache the model to avoid reloading on each interaction
 def load_model():
     model = tf.keras.models.load_model("models/best_eye_model.keras")
@@ -11,28 +24,23 @@ def load_model():
 
 model = load_model()
 
+# Once the model is loaded, clear the loading message
+loading_message_placeholder.empty()
+
 # Your class names (ensure this matches your model!)
 class_names = [
-    "Diabetic Retinopathy", 
-    "Glaucoma", 
-    "Cataract", 
+    "Diabetic Retinopathy",
+    "Glaucoma",
+    "Cataract",
     "Normal"  # Example: Update with your actual disease classes
 ]
 
 IMG_SIZE = 256
 
-# --- Page Configuration ---
-st.set_page_config(
-    page_title="Eye Disease Classifier",
-    page_icon="👁️",
-    layout="centered", # Can be "wide" or "centered"
-    initial_sidebar_state="auto"
-)
-
 # --- Header Section ---
 st.title("👁️ Eye Disease Classifier")
 st.markdown("""
-    Welcome to the **Eye Disease Classifier**! This tool helps to identify potential eye conditions 
+    Welcome to the **Eye Disease Classifier**! This tool helps to identify potential eye conditions
     from retinal images using a powerful AI model.
     Simply upload an image, and our system will provide a prediction.
 """)
@@ -43,7 +51,7 @@ st.write("---")
 # --- Image Upload Section ---
 st.subheader("Upload Retinal Image")
 uploaded_file = st.file_uploader(
-    "Choose an image file (JPG, JPEG, PNG)", 
+    "Choose an image file (JPG, JPEG, PNG)",
     type=["jpg", "jpeg", "png"],
     help="Upload a clear image of the retina for the best prediction."
 )
@@ -64,6 +72,7 @@ if uploaded_file is not None:
             img_array = np.array(img)
             img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
 
+            # Preprocessing should match your model's training
             img_array = tf.keras.applications.efficientnet.preprocess_input(img_array)
 
             prediction = model.predict(img_array)
@@ -77,11 +86,10 @@ if uploaded_file is not None:
             st.subheader("Understanding the Prediction")
             st.write(f"""
                 Based on the uploaded image, the model predicts the condition to be **{class_names[pred_class_index]}** with a confidence level of **{confidence:.2f}%**.
-                
                 For accurate diagnosis, please consult with a medical professional.
             """)
-            
-            #Display all class probabilities
+
+            # Display all class probabilities
             st.markdown("---")
             st.subheader("All Class Probabilities")
             for i, class_name in enumerate(class_names):

@@ -4,7 +4,7 @@ Eye Disease Classifier is a machine learning project designed to automatically d
 ![image](https://github.com/user-attachments/assets/ffaffdd4-a49c-4055-98f9-308f457e7bc8)
 
 ## Live Demo
-You can try the live demo of the Eye Disease Classifier here: [Eye Disease Classifier Demo](https://taigati-eye-disease-classifier-app-y8dwkt.streamlit.app/)
+You can try the live demo of the Eye Disease Classifier here: [Eye Disease Classifier Demo](https://eye-disease-classifier-taiga.streamlit.app)
 
 ## Dataset
 Kaggle: [Eye Disease Retinal Images](https://www.kaggle.com/datasets/gunavenkatdoddi/eye-diseases-classification/data?select=dataset)
