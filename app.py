@@ -27,12 +27,12 @@ model = load_model()
 # Once the model is loaded, clear the loading message
 loading_message_placeholder.empty()
 
-# Your class names (ensure this matches your model!)
+# Your class names
 class_names = [
+    "Cataract",
     "Diabetic Retinopathy",
     "Glaucoma",
-    "Cataract",
-    "Normal"  # Example: Update with your actual disease classes
+    "Normal",
 ]
 
 IMG_SIZE = 256
