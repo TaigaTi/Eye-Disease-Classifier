@@ -6,32 +6,6 @@ from PIL import Image
 import os
 import io
 
-# --- Custom CSS for button and image styling ---
-st.markdown("""
-<style>
-div.stButton > button {
-    background-color: var(--primary-color);
-    color: white; 
-    border-radius: 0.5rem;
-    font-weight: bold;
-    width: 100%;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-}
-div.stButton > button:hover {
-    background-color: orange;
-    color: black; 
-    border: 1px solid orange;
-}
-div.stImage > img {
-    object-fit: cover;
-    width: 100%;
-    height: auto;
-    border-radius: 0.5rem;
-    margin-bottom: 5px;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Eye Disease Classifier",
