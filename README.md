@@ -23,6 +23,14 @@ Kaggle: [Eye Disease Retinal Images](https://www.kaggle.com/datasets/gunavenkatd
 - Glaucoma
 - Normal
 
+## Model Performance
+
+- **Test Accuracy:** 0.900  
+- **Test Loss:** 0.387  
+- **Epochs (Total):** 61  
+
+![image](https://github.com/user-attachments/assets/94d5c40b-d0fa-4d2e-9f11-cc7a4d6cefb3)
+
 ## Setup Instructions
 
 ### Prerequisites
