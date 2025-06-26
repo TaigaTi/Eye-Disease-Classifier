@@ -6,7 +6,6 @@ from PIL import Image
 import os
 import io
 
-# --- Page Configuration ---
 st.set_page_config(
     page_title="Eye Disease Classifier",
     page_icon="👁️",
@@ -14,15 +13,59 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- Session State for currently selected image, caption, and uploader key ---
+# --- Fixed-position scroll prompt with transition and mobile-friendly padding ---
+if st.session_state.get("show_scroll_prompt", False):
+    st.markdown("""
+        <style>
+        #scroll-prompt-banner {
+            display: none;
+        }
+        #scroll-prompt-banner.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+        @media (max-width: 600px) {
+            #scroll-prompt-banner {
+                display: block;
+                padding-top: 2.5em;
+                position: fixed;
+                top: 0; left: 0; right: 0; z-index: 1000;
+                background: #002244;
+                color: #fff;
+                font-size: 1.3rem;
+                text-align: center;
+                padding: 2.5em 0 0.7em 0;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                opacity: 1;
+                transition: opacity 1s ease;
+            }
+        }
+        </style>
+        <div id="scroll-prompt-banner">
+            ⬇️ Scroll down to see the analysis results!
+        </div>
+        <div style="height: 3.1em;"></div>
+        <script>
+        setTimeout(function() {
+            var banner = window.parent.document.getElementById("scroll-prompt-banner");
+            if(banner){ banner.classList.add("hide"); }
+        }, 3000);
+        </script>
+        """, unsafe_allow_html=True)
+
+# --- Session state initialization ---
 if "selected_image_bytes" not in st.session_state:
     st.session_state.selected_image_bytes = None
 if "selected_image_caption" not in st.session_state:
     st.session_state.selected_image_caption = None
-if "file_uploader_key" not in st.session_state: # NEW: Key for file uploader
+if "file_uploader_key" not in st.session_state:
     st.session_state.file_uploader_key = 0
+if "scroll_to_results" not in st.session_state:
+    st.session_state.scroll_to_results = False
+if "show_scroll_prompt" not in st.session_state:
+    st.session_state.show_scroll_prompt = False
 
-# --- Loading Model ---
+# --- Model loading ---
 loading_message_placeholder = st.empty()
 loading_message_placeholder.info("🚀 Setting up the classifier... Please wait.")
 
@@ -42,6 +85,7 @@ class_names = [
 IMG_SIZE = 256
 
 st.title("👁️ Eye Disease Classifier")
+
 st.markdown("""
     Welcome to the **Eye Disease Classifier**! This tool helps to identify potential eye conditions
     from retinal images using a powerful AI model.
@@ -51,7 +95,7 @@ st.info("💡 **Disclaimer**: This tool is for informational purposes only and s
 st.write("---")
 
 def process_and_predict_image(image_to_analyze):
-    st.subheader("Analysis Results")
+    st.subheader("Analysis Results", anchor="results")
     with st.spinner("Analyzing image..."):
         img = image_to_analyze.resize((IMG_SIZE, IMG_SIZE))
         img_array = np.array(img)
@@ -73,22 +117,21 @@ def process_and_predict_image(image_to_analyze):
         for i, class_name in enumerate(class_names):
             st.write(f"- **{class_name}**: {prediction[0][i]*100:.2f}%")
 
-# --- Image Upload Section ---
 st.subheader("Upload Retinal Image")
 uploaded_file = st.file_uploader(
     "Choose an image file (JPG, JPEG, PNG)",
     type=["jpg", "jpeg", "png"],
     help="Upload a clear image of the retina for the best prediction.",
-    key=f"file_uploader_{st.session_state.file_uploader_key}" # NEW: Dynamic key
+    key=f"file_uploader_{st.session_state.file_uploader_key}"
 )
 st.write("---")
 
-# If a new image is uploaded, clear previous image state
 if uploaded_file is not None:
     st.session_state.selected_image_bytes = uploaded_file.read()
     st.session_state.selected_image_caption = "Uploaded Image"
-    
-# --- Sample Images Section ---
+    st.session_state.scroll_to_results = True
+    st.session_state.show_scroll_prompt = True
+
 st.subheader("Or Try with Sample Images")
 sample_image_dir = "samples"
 
@@ -113,9 +156,10 @@ else:
                     with open(sample_image_path, "rb") as f:
                         st.session_state.selected_image_bytes = f.read()
                     st.session_state.selected_image_caption = f"Sample Image: {os.path.basename(sample_image_path)}"
-                    
                     st.session_state.file_uploader_key += 1 
-                    st.rerun() # Rerun to apply the changes
+                    st.session_state.scroll_to_results = True
+                    st.session_state.show_scroll_prompt = True
+                    st.rerun()
             except Exception as e:
                 st.error(f"Error loading sample image '{sample_file}': {e}")
 
@@ -134,21 +178,27 @@ if st.session_state.selected_image_bytes is not None:
         st.session_state.selected_image_caption = None
 
 if image_to_display_and_process is not None:
+    if st.session_state.scroll_to_results:
+        st.session_state.scroll_to_results = False
+        st.markdown("""
+            <script>
+            window.location.hash = "results";
+            </script>
+            """, unsafe_allow_html=True)
     with col1:
         st.image(image_to_display_and_process, caption=image_caption, use_container_width=True)
     with col2:
         process_and_predict_image(image_to_display_and_process)
+    st.session_state.show_scroll_prompt = False
 else:
     st.info("👆 Please upload an image or select a sample image to get a prediction.")
-    
-# --- Model Stats Section ---
+
 st.write("---")
 st.subheader("Model Performance Summary")
 
 results_file = "eye_classification_results.xlsx"
 
 def try_format(val, stat_name=None):
-    # Round epochs to integer, other floats to 3dp, else show as-is
     if stat_name and "epoch" in stat_name.lower():
         try:
             return str(int(round(float(val))))
@@ -163,36 +213,28 @@ def try_format(val, stat_name=None):
 if os.path.exists(results_file):
     wb = openpyxl.load_workbook(results_file)
     ws = wb.active
-
-    # Collect best model stats from the "main table"
     stats = []
-    
     for row in ws.iter_rows(min_row=2, max_col=3, values_only=True):
         if not any(row):
             break
         stat_name, _, best_val = row
         if stat_name is not None and best_val is not None:
             stats.append((stat_name, try_format(best_val, stat_name)))
-
-    confusion_matrix = stats.pop()[1] # Remove confusion matrix from stats
-       
+    confusion_matrix = stats.pop()[1] if stats else None
     if stats:
         for stat_name, best_val in stats:
             st.markdown(f"- **{stat_name}**: `{best_val}`")
     else:
         st.info("No summary statistics found in results file.")
-        
-    # Display confusion matrix image if available and file exists
     if confusion_matrix:
         cm_path = confusion_matrix
-        # If path is not absolute, prepend the confusion_matrices/ folder
         if not os.path.isabs(cm_path) and not cm_path.startswith("confusion_matrices/"):
             cm_path = os.path.join("confusion_matrices", cm_path)
         if os.path.exists(cm_path):
             st.image(cm_path, caption="Confusion Matrix (Best Model)", use_container_width=True)
 else:
     st.info("No model results file (`eye_classification_results.xlsx`) found. Please train and evaluate your model first.")
-    
+
 st.write("---")
 st.markdown("""
     <div style="text-align: center; color: gray;">
